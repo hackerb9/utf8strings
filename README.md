@@ -24,23 +24,23 @@ the defacto standard for text in UNIX systems and on the Internet.
 
 # How
 
-Implemented in bog-standard C. UTF-8 is a beautiful design and
-includes the ability to _self synchronize_. Each character in a UTF-8
-string is made up of a sequence of up to four bytes. By looking at the
-first two bits of a byte, one knows immediately if the byte represents
-an ASCII character (00, 01), an initial byte in a sequence (11), or a
-continuation byte (10). That means that there is never any confusion
-about possibly overlapping UTF-8 interpretations.
+UTF-8 is a beautiful design and includes the ability to _self
+synchronize_. Each character in a UTF-8 string is made up of a
+sequence of up to four bytes. By looking at the first two bits of a
+byte, one knows immediately if the byte represents an ASCII character
+(00, 01), an initial byte in a sequence (11), or a continuation byte
+(10). That means that there is never any confusion about possibly
+overlapping UTF-8 interpretations.
 
 # Initial release 
 
-This was designed to be simple and correct. No thought was put in to
-optimization, yet. It correctly identifies valid UTF-8 sequences and
-rejects non-UTF-8. It shows strings with a minimum length of four
-*characters* (not bytes). Works on stdin or a single filename may be
-specified.
+This was designed to be simple and correct. It was implemented in
+bog-standard C. No thought was put in to optimization, yet. It
+correctly identifies valid UTF-8 sequences and rejects non-UTF-8. It
+shows strings with a minimum length of four *characters* (not bytes).
+Works on stdin or a single filename may be specified.
 
-It works for my purposes and probably will be fine for others as well.
+It works for my purposes and probably will be fine for you as well.
 
 # Deficiencies
 * Hardcoded to strings of minlength 4. 
@@ -56,14 +56,14 @@ official version of `strings` to support UTF-8.
 
 # Implementation Notes
 
-A. INVALID UTF-8 SEQUENCES, such as below, are correctly discarded:
+## A. INVALID UTF-8 SEQUENCES, such as below, are correctly discarded:
    1. Bytes that don't begin with UTF's magic (10*, 110*, 1110*, or 11110*).
    2. A byte with the correct magic bits, but all 0s for data. (E.g., 11110000).
    3. Incorrect usage of continuation bytes (10*) 
-      a. After 110*, there must be 1 continuation byte.
-      b. After 1110*, there must be 2 continuation bytes.
-      c. After 11110*, there must be 3 continuation bytes.
-      d. Continuation bytes (10*) not preceeded by one of the above are invalid.
+      1. After 110*, there must be one continuation byte.
+      2. After 1110*, there must be two continuation bytes.
+      3. After 11110*, there must be three continuation bytes.
+      4. Continuation bytes (10*) not preceeded by one of the above are invalid.
    4. Bytes C0 and C1. (They would encode ASCII as two bytes).
    5. U+D800 to U+DFFF are reserved for UTF-16's surrogate halves.
    6. Leading byte of F4 and codepoint is beyond Unicode's limit. (>0x10FFFF)
@@ -72,14 +72,16 @@ A. INVALID UTF-8 SEQUENCES, such as below, are correctly discarded:
    9. End of file before a complete character is read.
   10. Code points U+80 to U+9F are skipped as control characters.
 
-B. HOWEVER, IT COULD BE BETTER. Some valid UTF-8 sequences are
-   actually undefined code points in Unicode and shouldn't be printed.
-   Similarly, for a `strings` program like this, we would want to
-   check Unicode's syntactic tables so we can ignore non-printable
-   characters. These have been left out intentionally as they would
-   require updating with every new release of the Unicode standard.
+## B. HOWEVER, IT COULD BE BETTER.
 
-C. SOME TESTS:
+   Some valid UTF-8 sequences are actually undefined code points in
+   Unicode and shouldn't be printed. Similarly, for a `strings`
+   program like this, we would want to check Unicode's syntactic
+   tables so we can ignore non-printable characters. These have been
+   left out intentionally as they would require updating with every
+   new release of the Unicode standard.
+
+## C. SOME TESTS:
    1a. Values beyond Unicode (>= 0x110000) should NOT be shown:
 
        echo -n $'XX\xf4\x90\x80\x80XX' | ./utf8strings  | hd
