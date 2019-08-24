@@ -4,10 +4,11 @@
 #include <stdlib.h>		/* exit() */
 
 void checkandprint(int c, int count);
-int istoobig(char bytes[]);
-int issurrogate(char bytes[]);
+int istoobig(unsigned char bytes[]);
+int isutfcontrol(unsigned char bytes[]);
+int issurrogate(unsigned char bytes[]);
 void maybeputchar(int c);
-void maybeputsequence(char b[]);
+void maybeputsequence(unsigned char b[]);
 void resetfound();
 
 
@@ -15,11 +16,11 @@ static FILE *fp;		/* File stream to read from */
 int found=0;			/* Num printable chars found in a row so far */
 int minlen=4;			/* Minimum number before we'll print */
 
-char *buf; /* Null terminated string of UTF-8 bytes to maybe output */
+unsigned char *buf; /* Null terminated string of UTF-8 bytes to maybe output */
 int idx=0; /* Index into buf */
 int neednewline=0;		/* Have we already printed a string?  */
 
-int main(int argc, char *argv[]) {
+int main(int argc, unsigned char *argv[]) {
   /* Read stdin (or a file) and print out only the valid UTF-8 strings. */
 
   fp=stdin;
@@ -33,7 +34,6 @@ int main(int argc, char *argv[]) {
   while ((c=getc(fp)) != EOF) {
     if (isprint(c) || c=='\n') { maybeputchar(c); continue; } /* ASCII text */
     if (c<0x80) goto fail;			 /* Unprintable ASCII */
-    if (c<0xA0) goto fail;			 /* Unicode control chars */
     if (c==0xC0 || c==0xC1 || c>=0xF5) goto fail; /* Illegal values in UTF-8 */
 
     /* Print this byte only if next n bytes begin with 0b10 */
@@ -68,7 +68,7 @@ void maybeputchar(int c) {
   maybeputbuf();
 }
 
-void maybeputsequence(char *b) {
+void maybeputsequence(unsigned char *b) {
   // Found a valid UTF-8 sequence. Add it to the output buffer.
   found++;
   while (*b) {
@@ -86,7 +86,7 @@ void checkandprint(int c, int count) {
   /* Given a character 'c', check the next 'count' bytes if they are
    * valid UTF-8 continuation bytes.  (That is, the top two bits are 1-0). 
    * If all are valid, then print 'c', followed by the bytes. */
-  char bytes[5];
+  unsigned char bytes[5];
   bytes[0]=c;
   int i=1;
   while (count--) {
@@ -103,7 +103,7 @@ void checkandprint(int c, int count) {
   }
 
   /* Skip UTF-16's surrogate halves. Skip codepoints greater than U+10FFFF */
-  if (issurrogate(bytes)||istoobig(bytes)) {
+  if (isutfcontrol(bytes) || issurrogate(bytes) || istoobig(bytes)) {
     resetfound();
     return;
   }
@@ -114,7 +114,17 @@ void checkandprint(int c, int count) {
 }
 
 
-int issurrogate(char bytes[]) {
+int isutfcontrol(unsigned char bytes[]) {
+  /* Return true is the code point is within the range 
+   * U+0080 to U+009F, inclusive. 
+   * First byte is always 0xC2. (110 00010)
+   */
+  return ( bytes[0] == 0xC2 &&
+	   bytes[1] >= 0x80 &&
+	   bytes[1] <= 0x9F );
+}
+
+int issurrogate(unsigned char bytes[]) {
   /* Return true is the code point is within the range 
    * U+D800 to U+DFFF, inclusive. 
    * 0xD7FF is 1101 011111 111111, 
@@ -123,7 +133,7 @@ int issurrogate(char bytes[]) {
   return ( bytes[0]==0xED  &&  ((bytes[1] & 0b111111)>>5)==1 );
 }
 
-int istoobig(char bytes[]) { 
+int istoobig(unsigned char bytes[]) { 
   /* Return true if the code point is greater than U+10FFFF
    * (100 001111 111111 111111) 
    */
@@ -147,7 +157,7 @@ A. INVALID UTF-8 SEQUENCES, such as below, are correctly discarded:
    7. Leading byte of F5 to FD. (Always greater than 0x10FFFF).
    8. Leading byte of FE or FF. (Undefined in UTF-8 to allow for UTF-16 BOM).
    9. End of file before a complete character is read.
-  10. U+80 to U+95, although valid Unicode, are skipped as control characters.
+  10. U+80 to U+9F, although valid Unicode, are skipped as control characters.
 
 B. HOWEVER, IT COULD BE BETTER. Some valid UTF-8 sequences are
    actually undefined code points in Unicode and shouldn't be printed.
@@ -157,16 +167,21 @@ B. HOWEVER, IT COULD BE BETTER. Some valid UTF-8 sequences are
    require updating with every new release of the Unicode standard.
 
 C. SOME TESTS:
-   1a. Values beyond Unicode (>= 0x110000) should show nothing:
-       echo -n $'\xf4\x90\x80\x80' | ./utf8strings  | hd
+   1a. Values beyond Unicode (>= 0x110000) should NOT be shown:
+       echo -n $'XX\xf4\x90\x80\x80XX' | ./utf8strings  | hd
 
    1b. Characters <= 0x10FFFF should show something:
-       echo -n $'\xf4\x8f\xbf\xbf' | ./utf8strings  | hd
+       echo -n $'XX\xf4\x8f\xbf\xbfXX' | ./utf8strings  | hd
 
-   2a. UTF-16 surrogate halves should not be shown:
-       echo -n $'\xED\xA0\x80' | ./utf8strings | hd
+   2a. UTF-16 surrogate halves should NOT be shown:
+       echo -n $'XX\xED\xA0\x80XX' | ./utf8strings | hd
 
    2b. Characters between U+D000 to U+D7FF should be shown:
-       echo -n $'\xED\x9F\xBF' | ./utf8strings | hd
+       echo -n $'XX\xED\x9F\xBFXX' | ./utf8strings | hd
 
+   3a. UTF-8 Control characters 0x80 to 0x9F should NOT be shown:
+       echo $'XX\xC2\x80XX'  | ./utf8strings | hd
+
+   3b. Characters >= 0xA0 should be shown:
+       echo $XX'\xC2\xA0XX'  | ./utf8strings | hd
  */
