@@ -14,6 +14,8 @@ Extract strings of UTF-8 (four characters or longer) from binary blobs.
         utf8strings /dev/mem | less
         somebinaryemittingprogram | utf8strings 
 
+<img align="center" src="README.md.d/screenshot.png">
+
 # Why?
 
 "Binary" files often have text strings embedded in them, but the
