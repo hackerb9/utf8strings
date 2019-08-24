@@ -56,7 +56,8 @@ official version of `strings` to support UTF-8.
 
 # Implementation Notes
 
-## A. INVALID UTF-8 SEQUENCES, such as below, are correctly discarded:
+## A. INVALID UTF-8 SEQUENCES are correctly discarded:
+For example,
    1. Bytes that don't begin with UTF's magic (10*, 110*, 1110*, or 11110*).
    2. A byte with the correct magic bits, but all 0s for data. (E.g., 11110000).
    3. Incorrect usage of continuation bytes (10*) 
@@ -69,17 +70,18 @@ official version of `strings` to support UTF-8.
    6. Leading byte of F4 and codepoint is beyond Unicode's limit. (>0x10FFFF)
    7. Leading byte of F5 to FD. (Codepoint is greater than 0x10FFFF).
    8. Leading byte of FE or FF. (Undefined in UTF-8 to allow for UTF-16 BOM).
-   9. End of file before a complete character is read.
-  10. Code points U+80 to U+9F are skipped as control characters.
+   9. Code points U+80 to U+9F are skipped as control characters.
+  10. End of file before a complete character is read.
 
-## B. HOWEVER, IT COULD BE BETTER.
+## B. MAYBE IT COULD BE BETTER.
 
    Some valid UTF-8 sequences are actually undefined code points in
    Unicode and shouldn't be printed. Similarly, for a `strings`
    program like this, we would want to check Unicode's syntactic
-   tables so we can ignore non-printable characters. These have been
-   left out intentionally as they would require updating with every
-   new release of the Unicode standard.
+   tables so we can ignore non-printable characters. Those features
+   have been left out intentionally as they would be much more complex
+   and require updating with every new release of the Unicode
+   standard.
 
 ## C. SOME TESTS:
    1a. Values beyond Unicode (>= 0x110000) should NOT be shown:
